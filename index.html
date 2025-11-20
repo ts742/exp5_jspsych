@@ -1,0 +1,395 @@
+<html>
+  <head>
+  <meta charset="UTF-8" />
+  <script src="jspsych/dist/jspsych.js"></script>
+  <script src="jspsych/dist/plugin-survey-html-form.js"></script>
+  <script src="jspsych/dist/plugin-image-button-response.js"></script>
+  <script src="jspsych/dist/plugin-html-keyboard-response.js"></script>
+  <script src="jspsych/dist/plugin-html-button-response.js"></script>
+  <script src="jspsych/dist/plugin-preload.js"></script>
+  <link rel="stylesheet" href="jspsych/dist/jspsych.css" />
+
+  <style>
+    .jspsych-btn { font-size: 22px; padding: 16px 28px; }
+  </style>
+  </head>
+
+  <body></body>
+
+<script>
+/* =========================================================
+   完了コード生成（★追加）
+   ========================================================= */
+function generateFinishCode() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let code = "FIN-";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+// 完了コードを事前に作っておく
+const FINISH_CODE = generateFinishCode();
+
+
+/* =========================================================
+   Google Sheets WebApp URL
+   ========================================================= */
+const SHEETS_WEBAPP_URL =
+'https://script.google.com/macros/s/AKfycbz2IsVH1UBreBous5TCvs4x69qI6ur_TecUd89EGbMKBoQa7isjbL5tWm0tNwiDsl3yKQ/exec';
+
+
+/* =========================================================
+   CSV分割POST関数（元のまま）
+   ========================================================= */
+async function postCsv(url){
+  const csv = jsPsych.data.get().csv();
+  const MAX = 24000;
+  const lines = csv.split('\n');
+  const header = lines.shift();
+
+  let chunks = [];
+  let chunk = header + '\n';
+  let size = chunk.length;
+
+  for (const line of lines) {
+    if (!line) continue;
+    const row = line + '\n';
+    if (size + row.length > MAX) {
+      chunks.push(chunk);
+      chunk = row;
+      size = row.length;
+    } else {
+      chunk += row;
+      size += row.length;
+    }
+  }
+  if (chunk) chunks.push(chunk);
+
+  for (let i = 0; i < chunks.length; i++) {
+    const part = chunks[i];
+    const body =
+      'csv=' + encodeURIComponent(part) +
+      '&has_header=' + (i === 0 ? '1' : '0');
+
+    await fetch(url, {
+      method: 'POST',
+      headers: {'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body
+    });
+  }
+}
+
+
+/* =========================================================
+   jsPsych 初期化
+   ========================================================= */
+let aborted = false;
+let consentGiven = false;
+
+const jsPsych = initJsPsych({
+  on_finish: () => {}
+});
+
+// URLパラメータ pid
+const subject_id =
+  jsPsych.data.getURLVariable('pid') || jsPsych.randomization.randomID(8);
+
+// ★ 完了コードをデータ全体に付与 → CSVにも記録される
+jsPsych.data.addProperties({
+  subject_id: subject_id,
+  session_started_at: new Date().toISOString(),
+  finish_code: FINISH_CODE     // ← ★追加
+});
+
+
+/* =========================================================
+   Escで中断
+   ========================================================= */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    aborted = true;
+    jsPsych.endExperiment('参加者がEscキーで中断しました。');
+  }
+});
+
+
+/* =========================================================
+   刺激リスト
+   ========================================================= */
+const face_images = [
+  'exp/m_ag.png','exp/m_dis.png','exp/m_mask_ag.png','exp/m_mask_dis.png',
+  'exp/m_com_ag.png','exp/m_com_dis.png','exp/m_mask_com_ag.png','exp/m_mask_com_dis.png',
+  'exp/f_ag.png','exp/f_com_ag.png','exp/f_com_dis.png','exp/f_dis.png',
+  'exp/f_mask_ag.png','exp/f_mask_com_ag.png','exp/f_mask_com_dis.png','exp/f_mask_dis.png'
+];
+const EMO_CHOICES = ['怒り','嫌悪'];
+
+
+/* =========================================================
+   プリロード
+   ========================================================= */
+const preload = {
+  type: jsPsychPreload,
+  images: face_images
+};
+
+
+/* =========================================================
+   同意
+   ========================================================= */
+const consent = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: `<div style="max-width:800px;margin:0 auto;text-align:left;line-height:1.8;font-size:18px;">
+      <h2>実験への参加について</h2>
+
+      <h3>1. 研究目的</h3>
+      <p>本研究は人の顔表情の判断を調べることを目的としています。</p>
+
+      <h3>2. 研究内容</h3>
+      <p>マスクが顔表情の認識に与える影響を検討するため、マスクをしている顔画像とそうでない顔画像の表情の判断を行ってもらいます。</p>
+
+      <h3>3. 研究方法</h3>
+      <p>本実験は web ブラウザ上で、顔画像の判断課題を行ってもらいます。画像の評定は選択肢をクリックで選択し、判断してもらいます。</p>
+
+      <h3>4. 危険ならび不利益について</h3>
+      <p>本実験は 5～10 分ほどで終了し、身体や精神に恒久的な影響が出る心配はありません。各課題は参加者の任意のタイミングで始めることができます。
+      実験中に負担や不快感を感じた場合は、いつでも中断できます。中止に伴う不利益は一切生じません。</p>
+
+      <h3>5. お礼・謝礼等について</h3>
+      <p>本実験では、お礼・謝礼等はありません。</p>
+
+      <h3>6. プライバシーの保護</h3>
+      <p>実験の結果はすべて匿名で行われ、実験者以外が研究協力者のデータを直接見ることはありません。
+      また、データに個人が特定できる情報は一切記載しません。</p>
+
+      <h3>7. 研究に参加しないことへの不利益</h3>
+      <p>本研究への参加は任意であり、同意はいつでも撤回できます。研究に参加しなくても不利益は一切ありません。</p>
+
+      <p><b>上記に同意する場合は「同意する」をクリックしてください。</b></p>
+    </div>`,
+  choices: ['同意する', '同意しない'],
+  on_finish: (data) => {
+    consentGiven = (data.response === 0);
+    data.consent = consentGiven;
+
+    if (!consentGiven) {
+      aborted = true;
+      jsPsych.endExperiment('不同意のため終了します。');
+    }
+  }
+};
+
+
+/* =========================================================
+   年齢
+   ========================================================= */
+const age_form = {
+  type: jsPsychSurveyHtmlForm,
+  preamble: '<p>年齢（半角数字）を入力してください。</p>',
+  html: `
+    <input name="age" type="number" min="10" max="100" required
+           style="font-size:20px;width:120px;padding:6px;">
+  `,
+  button_label: '次へ',
+  on_finish: (data) => {
+    const age = Number(data.response.age);
+    jsPsych.data.addProperties({ age: age });
+  }
+};
+
+
+/* =========================================================
+   説明 → 練習
+   ========================================================= */
+function spaceStartHandler(e){
+  if(e.code === "Space"){ jsPsych.finishTrial(); }
+}
+
+const instruction = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: 'これから画面上に顔画像が表示されます。<br>' +
+    '提示された顔画像が示す表情を「怒り」「嫌悪」から選んでください。<br>' +
+    '練習試行4試行の後、本試行に入ります。<br><br>' +
+    '「開始」ボタン か スペースキー を押すと開始します。',
+  choices: ['開始'],
+  on_start:()=>{ document.addEventListener('keydown', spaceStartHandler); },
+  on_finish:()=>{ document.removeEventListener('keydown', spaceStartHandler); }
+};
+
+
+/* =========================================================
+   trial テンプレ
+   ========================================================= */
+const trial_template = {
+  type: jsPsychImageButtonResponse,
+  stimulus_width: 650,
+  stimulus_height: 450,
+  choices: EMO_CHOICES,
+  prompt: '<p>この顔の表情は何ですか</p>',
+  on_finish: (data) => {
+    const stim = data.stimulus;
+    const respIdx = data.response;
+    const respLabel = EMO_CHOICES[respIdx];
+
+    let correctAns = null;
+    if (stim.includes('ag')) correctAns = '怒り';
+    else if (stim.includes('dis')) correctAns = '嫌悪';
+
+    data.correct = (respLabel === correctAns);
+  }
+};
+
+
+// 練習 4 trial
+const practice_images = jsPsych.randomization.sampleWithoutReplacement(face_images, 4);
+const practice_trials = practice_images.map(img => ({
+  ...trial_template,
+  stimulus: img,
+  data: { task: 'practice', stimulus: img }
+}));
+
+const before_main = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: '<p>これから本試行に入ります</p>',
+  choices: "NO_KEYS",
+  trial_duration: 2000
+};
+
+
+/* =========================================================
+   本試行（96）
+   ========================================================= */
+const repeated_images = jsPsych.randomization.repeat(face_images, 6);
+const main_trials = repeated_images.map(img => ({
+  ...trial_template,
+  stimulus: img,
+  data: { task: 'main', stimulus: img }
+}));
+
+
+/* =========================================================
+   summary（元のまま）
+   ========================================================= */
+const summary_store = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: '',
+  choices: 'NO_KEYS',
+  trial_duration: 10,
+  on_start: () => {
+
+    const trials = jsPsych.data.get().filter({ task: 'main' }).values();
+
+    const parse = (s) => ({
+      mask:    s.includes('mask') ? 'on'  : 'off',
+      replace: s.includes('com')  ? 'on'  : 'off',
+      emo:     s.includes('ag')   ? 'ag'  : (s.includes('dis') ? 'dis' : 'unknown')
+    });
+
+    const B = {
+      mask_on:  { n:0, c:0 },
+      mask_off: { n:0, c:0 },
+      on_ag_on:    { n:0, c:0 },
+      on_ag_off:   { n:0, c:0 },
+      on_dis_on:   { n:0, c:0 },
+      on_dis_off:  { n:0, c:0 },
+      off_ag_on:   { n:0, c:0 },
+      off_ag_off:  { n:0, c:0 },
+      off_dis_on:  { n:0, c:0 },
+      off_dis_off: { n:0, c:0 },
+    };
+
+    for (const t of trials) {
+      const stim = String(t.stimulus || '');
+      const ok   = !!t.correct;
+      const f    = parse(stim);
+
+      if (f.mask === 'on') { B.mask_on.n++;  if (ok) B.mask_on.c++; }
+      else                 { B.mask_off.n++; if (ok) B.mask_off.c++; }
+
+      const key = (f.mask==='on'?'on':'off') + '_' +
+                  (f.emo==='ag'?'ag':'dis') + '_' +
+                  (f.replace==='on'?'on':'off');
+
+      if (B[key]) { B[key].n++; if (ok) B[key].c++; }
+    }
+
+    const r = (c,n) => (n ? c/n : 0);   // ← 0〜1 ratio
+
+    jsPsych.data.addProperties({
+      acc_mask_on:  r(B.mask_on.c, B.mask_on.n),
+      acc_mask_off: r(B.mask_off.c, B.mask_off.n),
+
+      acc_mask_on_ag_replace_on:    r(B.on_ag_on.c,    B.on_ag_on.n),
+      acc_mask_on_ag_replace_off:   r(B.on_ag_off.c,   B.on_ag_off.n),
+      acc_mask_on_dis_replace_on:   r(B.on_dis_on.c,   B.on_dis_on.n),
+      acc_mask_on_dis_replace_off:  r(B.on_dis_off.c,  B.on_dis_off.n),
+
+      acc_mask_off_ag_replace_on:   r(B.off_ag_on.c,   B.off_ag_on.n),
+      acc_mask_off_ag_replace_off:  r(B.off_ag_off.c,  B.off_ag_off.n),
+      acc_mask_off_dis_replace_on:  r(B.off_dis_on.c,  B.off_dis_on.n),
+      acc_mask_off_dis_replace_off: r(B.off_dis_off.c, B.off_dis_off.n),
+    });
+  }
+};
+
+
+/* =========================================================
+   データ送信 trial（元のまま）
+   ========================================================= */
+const upload_trial = {
+  type: jsPsychHtmlKeyboardResponse,
+  stimulus: '<p>データ送信中です。画面を閉じないでください…</p>',
+  choices: 'NO_KEYS',
+  on_load: () => {
+    (async () => {
+      try {
+        if (consentGiven && !aborted) {
+          await postCsv(SHEETS_WEBAPP_URL);
+        }
+      } catch(e) {
+        console.log('upload error', e);
+      }
+      jsPsych.finishTrial();
+    })();
+  }
+};
+
+
+/* =========================================================
+   ★ 終了画面（完了コードを表示）
+   ========================================================= */
+const debrief = {
+  type: jsPsychHtmlButtonResponse,
+  stimulus: `
+    <p>これで実験は終了です。ご協力ありがとうございました。</p>
+    <p style="font-size:22px;margin-top:30px;">
+      <b>【完了コード】<br>${FINISH_CODE}</b>
+    </p>
+    <p>クラウドソーシングの提出画面に、このコードを入力してください。</p>
+  `,
+  choices: ['終了']
+};
+
+
+/* =========================================================
+   実行
+   ========================================================= */
+jsPsych.run([
+  consent,
+  age_form,
+  preload,
+  instruction,
+  ...practice_trials,
+  before_main,
+  ...main_trials,
+  summary_store,
+  upload_trial,
+  debrief
+]);
+
+</script>
+</html>
+
+  
