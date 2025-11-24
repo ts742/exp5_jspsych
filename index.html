@@ -1,40 +1,44 @@
 <html>
-  <head>
+ <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
   <script src="dist/jspsych.js"></script>
-　<script src="dist/plugin-survey-html-form.js"></script>
-　<script src="dist/plugin-image-button-response.js"></script>
-　<script src="dist/plugin-html-keyboard-response.js"></script>
-　<script src="dist/plugin-html-button-response.js"></script>
-　<script src="dist/plugin-preload.js"></script>
-　<link rel="stylesheet" href="dist/jspsych.css" />
-　<style>
-    <style>
-  body {
-    margin: 0;
-    padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    min-height: 100vh;
-    background-color: #ffffff;
-  }
+  <script src="dist/plugin-survey-html-form.js"></script>
+  <script src="dist/plugin-image-button-response.js"></script>
+  <script src="dist/plugin-html-keyboard-response.js"></script>
+  <script src="dist/plugin-html-button-response.js"></script>
+  <script src="dist/plugin-preload.js"></script>
 
-  #jspsych-content {
-    max-width: 900px;
-    width: 100%;
-    margin: 0 auto;
-    padding: 20px;
-    text-align: center;
-  }
+  <link rel="stylesheet" href="dist/jspsych.css" />
 
-  .jspsych-btn {
-    font-size: 22px;
-    padding: 16px 28px;
-  }
-</style>
+  <style>
+    /* GitHub Pages / iframe でも必ず中央に揃う設定 */
+    body {
+      margin: 0 !important;
+      padding: 0;
+      display: flex !important;
+      justify-content: center !important;
+      align-items: flex-start;
+      min-height: 100vh;
+      background-color: #ffffff;
+      width: 100%;
+    }
+
+    #jspsych-content {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto !important;
+      padding: 20px;
+      text-align: center !important;
+    }
+
+    .jspsych-btn {
+      font-size: 22px;
+      padding: 16px 28px;
+    }
   </style>
-  </head>
+</head>
 
   <body></body>
 
@@ -416,5 +420,6 @@ jsPsych.run([
 
 
   
+
 
 
